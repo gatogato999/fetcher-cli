@@ -8,11 +8,6 @@ import (
 	"sync"
 )
 
-type Data struct {
-	d  map[string]string
-	mu sync.Mutex
-}
-
 func main() {
 	if len(os.Args) < 2 {
 		os.Exit(1)
@@ -21,36 +16,34 @@ func main() {
 	urls := os.Args[1:]
 
 	var waitter sync.WaitGroup
-	fetchedData := Data{make(map[string]string), sync.Mutex{}}
+	var mu sync.Mutex
 	for _, url := range urls {
 		waitter.Add(1)
-		go FetchData(url, &fetchedData, &waitter)
+		go FetchData(url, &mu, &waitter)
 	}
 
 	waitter.Wait()
-	for _, i := range fetchedData.d {
-		fmt.Print("\n-------------------\n", i, "\n-------------------\n")
-	}
 }
 
-func FetchData(url string, fetchedData *Data, waitter *sync.WaitGroup) {
+func FetchData(url string, mu *sync.Mutex, waitter *sync.WaitGroup) {
 	defer waitter.Done()
 	res, err := http.Get(url)
 	if err != nil {
-		fetchedData.mu.Lock()
-		fetchedData.d[url] = "error can't get the url"
-		fetchedData.mu.Unlock()
+		mu.Lock()
+		fmt.Print(err)
+		mu.Unlock()
+		return
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		fetchedData.mu.Lock()
-		fetchedData.d[url] = "error can't get the url"
-		fetchedData.mu.Unlock()
+		mu.Lock()
+		fmt.Print(err)
+		mu.Unlock()
+		return
 	}
-
-	fetchedData.mu.Lock()
-	fetchedData.d[url] = string(body)
-	fetchedData.mu.Unlock()
+	mu.Lock()
+	fmt.Print(string(body))
+	mu.Unlock()
 }
